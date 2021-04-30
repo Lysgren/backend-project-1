@@ -1,0 +1,21 @@
+{
+  "name": "backend-project-1-main",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "dependencies": {
+    "bcrypt": "^5.0.1",
+    "faker": "^5.5.3",
+    "jsonwebtoken": "^8.5.1",
+    "sequelize": "^6.6.2",
+    "sqlite3": "^5.0.2",
+    "express": "^4.17.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
