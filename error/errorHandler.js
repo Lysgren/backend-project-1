@@ -10,6 +10,17 @@ class UnexpectedError extends HandleError {
   }
 }
 
+class NoAuthorization extends HandleError {
+  // 400 Bad Request
+  
+  constructor(fields) {
+    super()
+    this.fields = fields
+    this.message = 'No authorization given in request'
+    this.statusCode = 400
+  }
+}
+
 class InvalidBody extends HandleError {
   // 400 Bad Request
   
@@ -46,7 +57,7 @@ class TooManyRequests extends HandleError {
 
   constructor() {
     super()
-    this.message = 'Too many request made'
+    this.message = 'Too many requests made'
     this.statusCode = 403
   }
 }
@@ -63,6 +74,7 @@ class DatabaseError extends HandleError {
 
 module.exports = {
   UnexpectedError,
+  NoAuthorization,
   HandleError,
   InvalidBody,
   InvalidCredentials,

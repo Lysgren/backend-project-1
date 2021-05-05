@@ -1,10 +1,12 @@
-const db = require('../database/connection')
+require('dotenv').config()
+const sequelize = require('sequelize')
 const { DataTypes } = require('sequelize')
+const db = require('../database/connection')
 const faker = require('faker')
 faker.locale = 'sv'
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
-const { UnexpectedError, InvalidCredentials, InvalidToken, TooManyRequests, DatabaseError } = require('../error/errorHandler')
+const { InvalidCredentials, UnexpectedError, TooManyRequests, DatabaseError } = require('../error/errorHandler')
 
 const User = db.define('User', {
   email: {
@@ -25,61 +27,42 @@ User.beforeCreate((user, options) => {
   user.password = bcrypt.hashSync(user.password, 10)
 })
 
-User.decodeToken = token => {
+User.login = async(email, password) => {
   try {
-    return jwt.verify(token, 'SUPER-DUPER-SECRET-STRING')
-  } catch (error) {
-    throw new InvalidToken()
-  }
-}
+    const user = await User.findOne({
+      where: {
+        email: email
+      }
+    })
 
-User.authenticate = async(email, password) => {
-  const user = await User.findOne({ where: { email } })
-
-  if (!user) { 
-    throw new InvalidCredentials()
-  }
-
-  const match = bcrypt.compareSync(password, user.password)
-  if (!match) { 
-    throw new InvalidCredentials()
-  }
-
-  const id = user.id
-  const userEmail = user.email
-
-  const token = jwt.sign({ id, userEmail }, 'SUPER-DUPER-SECRET-STRING', { expiresIn: '7d' })
-  return token
-}
-
-User.getUser = token => {
-  try {
-    const decoded = User.decodeToken(token)
-    const { userEmail } = decoded
-    return userEmail
-
-  } catch (error) {
-    if (error instanceof InvalidToken) {
-      throw new InvalidToken()
+    if (!user) {
+      throw new InvalidCredentials
     }
-  
-    throw new UnexpectedError()
+
+    const hashedPassword =  bcrypt.compareSync(password, user.password)
+
+    if (!hashedPassword) {
+      throw new InvalidCredentials
+    }
+
+    return jwt.sign({ id: user.id, email: user.email }, process.env.PASSWORD_ENCRYPTION, { expiresIn:'7d' })
+
+  } catch (error) {
+    if (error instanceof InvalidCredentials) {
+      throw new InvalidCredentials()
+    }
   }
 }
 
-User.changePassword = (token, newPassword) => {
+User.changePassword = (id, email, newPassword) => {
   try {
-    const decoded = User.decodeToken(token)
-    const { id, userEmail } = decoded
-
     const hashedPassword = bcrypt.hashSync(newPassword, 10)
-    console.log('Hashed password: ', hashedPassword)
 
     try {
       User.update({ password: hashedPassword }, {
         where: {
           id: id,
-          email: userEmail
+          email: email
         }
       })
     } catch (error) {
@@ -87,9 +70,7 @@ User.changePassword = (token, newPassword) => {
     }
 
   } catch (error) {
-    if (error instanceof InvalidToken) {
-      throw new InvalidToken()
-    } else if (error instanceof DatabaseError) {
+    if (error instanceof DatabaseError) {
       throw new DatabaseError()
     }
     
@@ -98,41 +79,31 @@ User.changePassword = (token, newPassword) => {
 }
 
 User.requestThrottling = async(id, userEmail) => {
-  try {
-    const requestsMade = await User.findOne({
-      attributes: ['fakerRequests'],
-      where: {
-        id: id,
-        email: userEmail
-      }
-    })
-
-    const { fakerRequests } = requestsMade
-    console.log(fakerRequests)
-
-
-    if (fakerRequests >= 10) {
-      throw new TooManyRequests()
+  const requestsMade = await User.findOne({
+    attributes: ['fakerRequests'],
+    where: {
+      id: id,
+      email: userEmail
     }
+  })
 
-/*     User.update({ fakerRequests: 1 }, {
-      where: {
-        id: id,
-        email: userEmail
-      }
-    }) */
+  const { fakerRequests } = requestsMade
 
-  } catch (error) {
+  if (fakerRequests >= 10) {
     throw new TooManyRequests()
   }
+
+  User.update({ fakerRequests: fakerRequests + 1 }, {
+    where: {
+      id: id,
+      email: userEmail
+    }
+  })
 }
 
-User.generate = async token => {
+User.generate = async(id, email) => {
   try {
-    const decoded =  User.decodeToken(token)
-    const { id, userEmail } = decoded
-
-    await User.requestThrottling(id, userEmail)
+    await User.requestThrottling(id, email)
 
     let birthDate = faker.date.between('1950-01-01', '2000-01-01')
     let dateToStr = JSON.stringify(birthDate)
@@ -157,14 +128,22 @@ User.generate = async token => {
     return fakedData
 
   } catch (error) {
-    if (error instanceof InvalidToken) {
-      throw new InvalidToken()
-    } else if (error instanceof TooManyRequests) {
+    if (error instanceof TooManyRequests) {
       throw new TooManyRequests()
     }
     
     throw new UnexpectedError()
   }
+}
+
+User.resetRequests = async() => {
+  await User.update({ fakerRequests: 0 }, {
+    where: {
+      fakerRequests: {
+        [sequelize.Op.not]: 0
+      }
+    }
+  })
 }
 
 module.exports = User

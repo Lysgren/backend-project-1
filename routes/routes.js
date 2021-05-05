@@ -2,11 +2,11 @@ const { Router } = require('express')
 const router = new Router()
 
 const controller = require('../controllers/controllers.js')
-// const authenticate = require('../middleware/auth')
+const authenticate = require('../middleware/auth')
 
 router.post('/login', controller.Login)
-router.get('/me', controller.GetMe)
-router.patch('/me', controller.ChangePassword)
-router.get('/generate', controller.Generate)
+router.get('/me', authenticate, controller.GetMe)
+router.patch('/me', authenticate, controller.ChangePassword)
+router.get('/generate', authenticate, controller.Generate)
 
 module.exports = router

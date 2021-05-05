@@ -1,8 +1,11 @@
-const { HandleError, InvalidCredentials, InvalidToken, TooManyRequests, DatabaseError } = require('../error/errorHandler')
+const { HandleError, NoAuthorization, InvalidCredentials, InvalidToken, TooManyRequests, DatabaseError } = require('../error/errorHandler')
 const { BaseError } = require('sequelize')
 
 const ReturnError = (error, req, res, next) => {
   if (error instanceof HandleError) {
+    res.status(error.statusCode).json({ error: error.message })
+
+  } else if (error instanceof NoAuthorization) {
     res.status(error.statusCode).json({ error: error.message })
 
   } else if (error instanceof InvalidCredentials) {

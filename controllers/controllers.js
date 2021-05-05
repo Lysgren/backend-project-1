@@ -10,7 +10,7 @@ const Login = async(req, res, next) => {
       throw new InvalidBody(['email', 'password'])
     }
   
-    const token = await User.authenticate(email, password)
+    const token = await User.login(email, password)
     res.json({ message: 'Succesfully logged in', token: token })
 
   } catch (error) {
@@ -21,14 +21,7 @@ const Login = async(req, res, next) => {
 // Ger tillbaka användarinfo för den inloggade användaren
 const GetMe = (req, res, next) => {
   try {
-    const { token } = req.body
-
-    if ( !token ) {
-      throw new InvalidBody(['token']) 
-    }
-
-    const userEmail = User.getUser(token)
-    res.json({ email: userEmail })
+    res.json({ email: req.email })
 
   } catch (error) {
     next(error)
@@ -38,31 +31,24 @@ const GetMe = (req, res, next) => {
 // Ändrar lösenordet
 const ChangePassword = async(req, res, next) => {
   try {
-    const { newPassword, token } = req.body
+    const { newPassword } = req.body
 
-    if ( !newPassword || !token ) {
-      throw new InvalidBody(['password', 'token']) 
+    if ( !newPassword ) {
+      throw new InvalidBody(['password']) 
     }
 
-    User.changePassword(token, newPassword)
+    User.changePassword(req.id, req.email, newPassword)
     res.json({ message: 'Succesfully changed password'})
 
   } catch (error) {
     next(error)
   }
-  
 }
 
 // Genererar en ny användarprofil, max 10st /dag per användare
-const Generate = (req, res, next) => {
+const Generate = async(req, res, next) => {
   try {
-    const { token } = req.body
-
-    if ( !token ) {
-      throw new InvalidBody(['token'])
-    }
-
-    const fakedUser = User.generate(token)
+    const fakedUser = await User.generate(req.id, req.email)
     res.json({ fakedUser })
 
   } catch (error) {
